@@ -85,7 +85,7 @@ class LinkedInBot:
 
 
         #Não consegue captar todos os links ainda, falta melhorar essa parte
-        for i in range(25, max_pag, 25):
+        for i in range(0, max_pag, 25):
             try:
                 #Links
                 self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}&start={i}")

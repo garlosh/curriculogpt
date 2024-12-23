@@ -2,30 +2,48 @@ from dotenv import load_dotenv, find_dotenv
 from os import environ
 from classes.scrapper import *
 from classes.gpt import *
+import pandas as pd
+import pdb
 
-load_dotenv(find_dotenv(), override = True)
 if __name__ == "__main__":
-    caminho_pdf_original = "./curriculo.pdf"
+    # Configurar credenciais
     load_dotenv(find_dotenv(), override = True)
+    credentials = LinkedInCredentials(
+        email=environ.get("LINKEDIN_USER"),
+        password=environ.get("LINKEDIN_PASS")
+    )
     # Definir a chave da API da OpenAI
     api_key = environ.get("OPEN_AI_KEY")
-    # Lista de descrições de vagas
-    descricoes_vagas = [
-        """
-        Vaga para Desenvolvedor Back-End com experiência em Python, Django e bancos de dados relacionais.
-        O candidato deve ter experiência em trabalho remoto e habilidades de liderança.
-        """,
-        """
-        Vaga para Desenvolvedor Full Stack com foco em front-end utilizando React e Vue.js.
-        Conhecimentos de CSS e experiência com design responsivo são diferenciais.
-        """,
-        """
-        Vaga para Engenheiro de Dados com habilidades em Spark, Hadoop, e experiência com grandes volumes de dados.
-        Experiência em soluções de Big Data e pipeline de dados é essencial.
-        """
-    ]
-
+    
+    # Paths
     destino_pdfs = "./curriculosgpt"
+    caminho_pdf_original = "./curriculo.pdf"
+    
+    # Inicializa o bot do LinkedIn
+    bot = LinkedInBot()
 
+    try:
+        # Login no LinkedIn
+        bot.login(credentials)
+        
+        # Busca vagas de desenvolvedor Python no Brasil
+        links_de_vagas = bot.buscar_vagas("Desenvolvedor Python", "Brasil")
+
+        # Transformar a estrutura
+        df = pd.Series(links_de_vagas)
+        
+        # Remover duplicatas
+        df_filtrado = df.drop_duplicates()
+        detalhes_vagas = df_filtrado.apply(lambda x: bot.obter_detalhes_vaga(x))
+        detalhes_vagas = detalhes_vagas[detalhes_vagas.apply(lambda x: x.metodo_apply == 'Interno')]
+
+        # Salvando como JSON
+        with open("vagas.json", "w", encoding="utf-8") as json_file:
+            json.dump(detalhes_vagas.to_json(), json_file, indent=4, ensure_ascii=False)
+    finally:
+        # Fechar o navegador
+        bot.fechar()
+
+    descricoes_vagas = detalhes_vagas.apply(lambda x: x.descricao)
     processador = ProcessadorCurriculo(caminho_pdf_original, descricoes_vagas, destino_pdfs, api_key)
     processador.processar()

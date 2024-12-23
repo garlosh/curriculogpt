@@ -43,10 +43,7 @@ class Curriculo:
             pdf = FPDF()
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
-
-            # No HTMLMixin, usamos o método write_html() para escrever o conteúdo
             pdf.write_html(self.conteudo)
-
             pdf.output(caminho_completo)
             print(f"Currículo salvo com sucesso em: {caminho_completo}")
         except:
@@ -80,7 +77,6 @@ class GeradorCurriculo:
             messages=[{"role":"user", "content": prompt}],
             temperature=0.7,
         )
-        #pdb.set_trace()
         return response.choices[0].message.content.strip()
 
 

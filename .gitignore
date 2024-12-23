@@ -2,3 +2,4 @@
 teste.py
 *.pdf
 __pycache__
+*.json
