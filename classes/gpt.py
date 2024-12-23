@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from dotenv import load_dotenv, find_dotenv
 from os import environ
 
-import pdb
-
-
 @dataclass
 class Curriculo:
     caminho_pdf: str
@@ -62,9 +59,9 @@ class GeradorCurriculo:
         self.client = OpenAI(api_key = self.api_key)
 
     def gerar_curriculo_personalizado(self, curriculo_original: Curriculo, descricao_vaga: str) -> str:
-        """Gera um currículo personalizado com base no currículo original e na descrição da vaga."""
+        """Gera um currículo personalizado com base neste currículo  e na descrição da vaga."""
         prompt = f"""
-        A partir do currículo original abaixo:
+        A partir do currículo extendido original abaixo:
 
         {curriculo_original.conteudo}
 
@@ -72,9 +69,10 @@ class GeradorCurriculo:
 
         {descricao_vaga}
 
-        Gere um currículo personalizado que não precise de alterações minhas, enfatizando as habilidades e experiências
-        que mais se alinham com a vaga. Mantenha um tom profissional e objetivo.
-        Além disto, retorne o currículo em HTML, e APENAS O CÓDIGO DO HTML.
+        A partir do currículo original extendido, gere um currículo personalizado que não precise de alterações minhas,
+        selecionando os trechos mais adequados, se adequando às palavras chave, enfatizando as habilidades e experiências que mais se alinham com a vaga. 
+        Mantenha um tom profissional e objetivo.
+        Além disto, retorne apenas o currículo em HTML, pois este será salvo em PDF.
         """
 
         response = self.client.chat.completions.create(
