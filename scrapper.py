@@ -1,13 +1,14 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import List, Optional
 import numpy as np
 import multiprocessing
 import time
 from dotenv import load_dotenv, find_dotenv
 from os import environ
+import json
 #import os
 import pdb
 
@@ -24,6 +25,7 @@ class Vaga:
     estilo_trabalho: str
     nivel_senioridade: str
     metodo_apply: str
+    descricao: str
 
 #Falta adequar isso
 def parallelize(funct, iterable, processes = None) -> np.array:
@@ -68,7 +70,7 @@ class LinkedInBot:
     def buscar_vagas(self, palavra_chave: str, localizacao: str) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
         #Funções vetoriais
-        get_pag_number = np.vectorize(lambda x: np.int8(x.get_attribute('data-test-pagination-page-btn')))
+        get_pag_number = np.vectorize(lambda x: np.int16(x.get_attribute('data-test-pagination-page-btn')))
         get_link = np.vectorize(lambda x: x.get_attribute('href'))
 
         self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}")
@@ -79,24 +81,24 @@ class LinkedInBot:
         pags_root = np.array(self.driver.find_elements(By.XPATH, "//li[@data-test-pagination-page-btn]"))
         n_pags_root = get_pag_number(pags_root)
         links_vagas = np.array([])
-
+        
         #pdb.set_trace()
-        i = 1
-        while i < np.max(n_pags_root):
+        max_pag = 25 * np.max(n_pags_root)
+
+
+        #Não consegue captar todos os links ainda, falta melhorar essa parte
+        for i in range(25, 50, 25):
             try:
+                #Links
+                self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}&start={i}")
+                time.sleep(5)
                 #Pega as vagas
                 vagas:np.array = np.array(self.driver.find_elements(By.XPATH, "//a[contains(@class, 'job-card-list__title')]"))
                 links_pag = get_link(vagas)
                 links_vagas = np.concatenate((links_vagas, links_pag))
-
-                #Controla a paginação
-                pags = np.array(self.driver.find_elements(By.XPATH, "//li[@data-test-pagination-page-btn] | //li[contains(@class, 'artdeco-pagination__indicator')]/button/span[text()='…']/../.."))
-                pags[i].location_once_scrolled_into_view
-                pags[i].click()
-                time.sleep(2)
-                i += 1
+                
             except:
-                break
+                continue
             
 
         return links_vagas
@@ -158,12 +160,21 @@ class LinkedInBot:
             except:
                 pass
 
+            # Descrição da vaga
+            desc = "Indefinido"
+            try:
+                self.driver.find_element(By.XPATH, "//button[contains(@class, 'jobs-description__footer-button')]").click() #Não precisa salvar na memória
+                desc_elem = self.driver.find_element(By.XPATH, "//*[@id='job-details']/div")
+                desc = desc_elem.text
+            except:
+                pass
             # Retorna as informações da vaga
             return Vaga(
                 link=link_vaga,
                 estilo_trabalho=estilo_trabalho,
                 nivel_senioridade=nivel_senioridade,
-                metodo_apply=metodo_apply
+                metodo_apply=metodo_apply,
+                descricao=desc
             )
         
         except Exception as e:
@@ -196,16 +207,22 @@ def main():
         # Busca vagas de desenvolvedor Python no Brasil
         links_de_vagas = bot.buscar_vagas("Desenvolvedor Python", "Brasil")
 
+        vagas = np.array([])
         # Exibe as vagas encontradas e busca mais detalhes
-        print(f"Nº de links: {len(links_de_vagas)}")
-        for link in links_de_vagas:
-            detalhes_vaga = bot.obter_detalhes_vaga(link)
-            if detalhes_vaga:
-                print(f"Estilo de Trabalho: {detalhes_vaga.estilo_trabalho}")
-                print(f"Nível de Senioridade: {detalhes_vaga.nivel_senioridade}")
-                print(f"Método de Apply: {detalhes_vaga.metodo_apply}")
-                print("-" * 40)
+        #print(f"Nº de links: {len(links_de_vagas)}")
+        #Este for pode talvez ser paralelizado em varios browsers
+        for link in links_de_vagas: 
+            vagas = np.append(vagas, bot.obter_detalhes_vaga(link))
+            #if detalhes_vaga:
+            #    print(f"Estilo de Trabalho: {detalhes_vaga.estilo_trabalho}")
+            #    print(f"Nível de Senioridade: {detalhes_vaga.nivel_senioridade}")
+            #    print(f"Método de Apply: {detalhes_vaga.metodo_apply}")
+            #    print("-" * 40)
 
+        vagas_dict_list = [asdict(vaga) for vaga in vagas]
+        # Salvando como JSON
+        with open("vagas.json", "w", encoding="utf-8") as json_file:
+            json.dump(vagas_dict_list, json_file, indent=4, ensure_ascii=False)
     finally:
         # Fechar o navegador
         bot.fechar()
