@@ -1,12 +1,14 @@
-import openai
+from openai import OpenAI
 import PyPDF2 as pypdf
 import os
 import hashlib
 from fpdf import FPDF
 from dataclasses import dataclass
-from gpt import *
-# Definir a chave da API da OpenAI
-openai.api_key = 'SUA_CHAVE_API_OPENAI'
+from dotenv import load_dotenv, find_dotenv
+from os import environ
+
+import pdb
+
 
 @dataclass
 class Curriculo:
@@ -17,46 +19,47 @@ class Curriculo:
         """Extrai o conteúdo do arquivo PDF original."""
         try:
             with open(self.caminho_pdf, 'rb') as pdf_file:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                pdf_reader = pypdf.PdfReader(pdf_file)
                 num_pages = len(pdf_reader.pages)
-                conteudo = ""
+                conteudo_extraido = ""
                 for page_num in range(num_pages):
                     page = pdf_reader.pages[page_num]
-                    conteudo += page.extract_text()
-                self.conteudo = conteudo
-                print(f"Conteúdo do PDF extraído com sucesso.")
+                    conteudo_extraido += page.extract_text() or ""
+                self.conteudo = conteudo_extraido
+                print("Conteúdo do PDF extraído com sucesso.")
         except Exception as e:
             print(f"Erro ao ler o arquivo PDF: {e}")
             self.conteudo = ""
 
     def salvar_curriculo_pdf(self, nome_arquivo: str, path: str):
-        """Salva o currículo gerado em um arquivo PDF na pasta especificada."""
+        """Salva o currículo (o atributo 'conteudo' em HTML) em um arquivo PDF na pasta especificada."""
         if not os.path.exists(path):
             os.makedirs(path)
 
         caminho_completo = os.path.join(path, f"{nome_arquivo}.pdf")
 
+        # Se já existir, não recria
         if os.path.exists(caminho_completo):
             print(f"Currículo já existe e será reaproveitado: {caminho_completo}")
             return
+        try:
+            pdf = FPDF()
+            pdf.set_auto_page_break(auto=True, margin=15)
+            pdf.add_page()
 
-        pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=15)
-        pdf.add_page()
-        pdf.set_font("Arial", size=12)
+            # No HTMLMixin, usamos o método write_html() para escrever o conteúdo
+            pdf.write_html(self.conteudo)
 
-        # Adiciona conteúdo ao PDF, linha por linha
-        for linha in self.conteudo.split('\n'):
-            pdf.multi_cell(0, 10, linha)
-        
-        pdf.output(caminho_completo)
-        print(f"Currículo salvo com sucesso em: {caminho_completo}")
-   
+            pdf.output(caminho_completo)
+            print(f"Currículo salvo com sucesso em: {caminho_completo}")
+        except:
+            print(f"Falha ao salvar o curriculo: {nome_arquivo}")
+
 
 class GeradorCurriculo:
     def __init__(self, api_key: str):
         self.api_key = api_key
-
+        self.client = OpenAI(api_key = self.api_key)
 
     def gerar_curriculo_personalizado(self, curriculo_original: Curriculo, descricao_vaga: str) -> str:
         """Gera um currículo personalizado com base no currículo original e na descrição da vaga."""
@@ -69,29 +72,29 @@ class GeradorCurriculo:
 
         {descricao_vaga}
 
-        Gere um currículo personalizado, enfatizando as habilidades e experiências que mais se alinham com a vaga.
+        Gere um currículo personalizado que não precise de alterações minhas, enfatizando as habilidades e experiências
+        que mais se alinham com a vaga. Mantenha um tom profissional e objetivo.
+        Além disto, retorne o currículo em HTML, e APENAS O CÓDIGO DO HTML.
         """
-        
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
-            max_tokens=1500,
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role":"user", "content": prompt}],
             temperature=0.7,
         )
-        
-        return response['choices'][0]['text']
-
+        #pdb.set_trace()
+        return response.choices[0].message.content.strip()
 
 
 class ProcessadorCurriculo:
-    def __init__(self, caminho_pdf_original: str, descricoes_vagas: list, destino_pdfs: str):
+    def __init__(self, caminho_pdf_original: str, descricoes_vagas: list, destino_pdfs: str, api_key: str):
         self.curriculo = Curriculo(caminho_pdf=caminho_pdf_original)
         self.descricoes_vagas = descricoes_vagas
         self.destino_pdfs = destino_pdfs
+        self.api_key = api_key
 
     def gerar_identificador_unico(self, descricao_vaga: str) -> str:
-        """Gera um identificador único baseado na descrição da vaga para evitar duplicação."""
-        # Gerar um hash da descrição da vaga para criar um nome de arquivo único
+        """Gera um identificador único baseado na descrição da vaga para nomear o PDF."""
         hash_vaga = hashlib.md5(descricao_vaga.encode()).hexdigest()
         return f"curriculo_{hash_vaga}"
 
@@ -101,28 +104,31 @@ class ProcessadorCurriculo:
         self.curriculo.extrair_conteudo()
 
         # Gera currículos personalizados para cada descrição de vaga
-        gerador = GeradorCurriculo(api_key=openai.api_key)
-        escritor_pdf = pypdf.PdfWriter(pasta_destino=self.destino_pdfs) 
+        gerador = GeradorCurriculo(api_key=self.api_key)
 
         for descricao_vaga in self.descricoes_vagas:
             nome_arquivo = self.gerar_identificador_unico(descricao_vaga)
-            
-            # Verifica se o currículo já existe para essa descrição de vaga
-            if os.path.exists(os.path.join(self.destino_pdfs, f"{nome_arquivo}.pdf")):
+            caminho_arquivo = os.path.join(self.destino_pdfs, f"{nome_arquivo}.pdf")
+
+            # Verifica se já existe PDF para essa descrição de vaga
+            if os.path.exists(caminho_arquivo):
                 print(f"Currículo já existente para esta vaga: {nome_arquivo}.pdf. Reutilizando...")
                 continue
 
-            # Gera o currículo personalizado
+            # Gera o texto personalizado
             curriculo_personalizado = gerador.gerar_curriculo_personalizado(self.curriculo, descricao_vaga)
 
-            # Salva o currículo personalizado em PDF
-            escritor_pdf.salvar_curriculo_pdf(curriculo_personalizado, nome_arquivo)
+            # Cria um novo objeto Curriculo apenas com o conteúdo personalizado
+            curriculo_temp = Curriculo(caminho_pdf="", conteudo=curriculo_personalizado)
+            curriculo_temp.salvar_curriculo_pdf(nome_arquivo, self.destino_pdfs)
 
 
 # Função principal para executar o fluxo de geração de múltiplos currículos
 def main():
     caminho_pdf_original = "./curriculo.pdf"
-    import pdb
+    load_dotenv(find_dotenv(), override = True)
+    # Definir a chave da API da OpenAI
+    api_key = environ.get("OPEN_AI_KEY")
     # Lista de descrições de vagas
     descricoes_vagas = [
         """
@@ -141,9 +147,9 @@ def main():
 
     destino_pdfs = "./curriculosgpt"
 
-    processador = ProcessadorCurriculo(caminho_pdf_original, descricoes_vagas, destino_pdfs)
+    processador = ProcessadorCurriculo(caminho_pdf_original, descricoes_vagas, destino_pdfs, api_key)
     processador.processar()
 
-# Executa o script principal
+
 if __name__ == "__main__":
     main()

@@ -9,8 +9,6 @@ import time
 from dotenv import load_dotenv, find_dotenv
 from os import environ
 import json
-#import os
-import pdb
 
 # Usando dataclass para armazenar informações de login
 @dataclass
