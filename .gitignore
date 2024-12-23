@@ -1,3 +1,5 @@
 *.env
 main.py
 teste.py
+*.pdf
+__pycache__

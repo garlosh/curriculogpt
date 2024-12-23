@@ -1,5 +1,5 @@
 import openai
-import PyPDF2
+import PyPDF2 as pypdf
 import os
 import hashlib
 from fpdf import FPDF
@@ -102,7 +102,7 @@ class ProcessadorCurriculo:
 
         # Gera currículos personalizados para cada descrição de vaga
         gerador = GeradorCurriculo(api_key=openai.api_key)
-        escritor_pdf = PDFWriter(pasta_destino=self.destino_pdfs)
+        escritor_pdf = pypdf.PdfWriter(pasta_destino=self.destino_pdfs) 
 
         for descricao_vaga in self.descricoes_vagas:
             nome_arquivo = self.gerar_identificador_unico(descricao_vaga)
@@ -121,8 +121,8 @@ class ProcessadorCurriculo:
 
 # Função principal para executar o fluxo de geração de múltiplos currículos
 def main():
-    caminho_pdf_original = "caminho/para/seu_curriculo.pdf"
-
+    caminho_pdf_original = "./curriculo.pdf"
+    import pdb
     # Lista de descrições de vagas
     descricoes_vagas = [
         """
@@ -139,7 +139,7 @@ def main():
         """
     ]
 
-    destino_pdfs = "caminho/para/salvar/curriculos"
+    destino_pdfs = "./curriculosgpt"
 
     processador = ProcessadorCurriculo(caminho_pdf_original, descricoes_vagas, destino_pdfs)
     processador.processar()
