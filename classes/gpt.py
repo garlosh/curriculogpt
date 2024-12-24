@@ -12,7 +12,7 @@ class Curriculo:
     caminho_pdf: str
     conteudo: str = ""
 
-    def extrair_conteudo(self):
+    def extrair_conteudo(self) -> None:
         """Extrai o conteúdo do arquivo PDF original."""
         try:
             with open(self.caminho_pdf, 'rb') as pdf_file:
@@ -28,7 +28,7 @@ class Curriculo:
             print(f"Erro ao ler o arquivo PDF: {e}")
             self.conteudo = ""
 
-    def salvar_curriculo_pdf(self, nome_arquivo: str, path: str):
+    def salvar_curriculo_pdf(self, nome_arquivo: str, path: str) -> None:
         """Salva o currículo (o atributo 'conteudo' em HTML) em um arquivo PDF na pasta especificada."""
         if not os.path.exists(path):
             os.makedirs(path)
@@ -79,7 +79,6 @@ class GeradorCurriculo:
         )
         return response.choices[0].message.content.strip()
 
-
 class ProcessadorCurriculo:
     def __init__(self, caminho_pdf_original: str, descricoes_vagas: list, destino_pdfs: str, api_key: str):
         self.curriculo = Curriculo(caminho_pdf=caminho_pdf_original)
@@ -92,7 +91,7 @@ class ProcessadorCurriculo:
         hash_vaga = hashlib.md5(descricao_vaga.encode()).hexdigest()
         return f"curriculo_{hash_vaga}"
 
-    def processar(self):
+    def processar(self) -> None:
         """Processa a geração dos currículos personalizados e os salva como PDFs."""
         # Extrai o conteúdo do currículo original
         self.curriculo.extrair_conteudo()
@@ -115,35 +114,3 @@ class ProcessadorCurriculo:
             # Cria um novo objeto Curriculo apenas com o conteúdo personalizado
             curriculo_temp = Curriculo(caminho_pdf="", conteudo=curriculo_personalizado)
             curriculo_temp.salvar_curriculo_pdf(nome_arquivo, self.destino_pdfs)
-
-
-# Função principal para executar o fluxo de geração de múltiplos currículos
-def main():
-    caminho_pdf_original = "./curriculo.pdf"
-    load_dotenv(find_dotenv(), override = True)
-    # Definir a chave da API da OpenAI
-    api_key = environ.get("OPEN_AI_KEY")
-    # Lista de descrições de vagas
-    descricoes_vagas = [
-        """
-        Vaga para Desenvolvedor Back-End com experiência em Python, Django e bancos de dados relacionais.
-        O candidato deve ter experiência em trabalho remoto e habilidades de liderança.
-        """,
-        """
-        Vaga para Desenvolvedor Full Stack com foco em front-end utilizando React e Vue.js.
-        Conhecimentos de CSS e experiência com design responsivo são diferenciais.
-        """,
-        """
-        Vaga para Engenheiro de Dados com habilidades em Spark, Hadoop, e experiência com grandes volumes de dados.
-        Experiência em soluções de Big Data e pipeline de dados é essencial.
-        """
-    ]
-
-    destino_pdfs = "./curriculosgpt"
-
-    processador = ProcessadorCurriculo(caminho_pdf_original, descricoes_vagas, destino_pdfs, api_key)
-    processador.processar()
-
-
-if __name__ == "__main__":
-    main()

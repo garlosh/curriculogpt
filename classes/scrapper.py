@@ -9,7 +9,7 @@ import time
 from dotenv import load_dotenv, find_dotenv
 from os import environ
 import json
-import pdb 
+
 # Usando dataclass para armazenar informações de login
 @dataclass
 class LinkedInCredentials:
@@ -49,7 +49,7 @@ class LinkedInBot:
     def __init__(self):
         self.driver:webdriver.Edge = webdriver.Edge()
     
-    def login(self, credentials:LinkedInCredentials):
+    def login(self, credentials:LinkedInCredentials) -> None:
         """Realiza login no LinkedIn."""
         self.driver.get("https://www.linkedin.com/login")
         time.sleep(3)
@@ -68,14 +68,10 @@ class LinkedInBot:
     def buscar_vagas(self, palavra_chave: str, localizacao: str) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
         #Funções vetoriais
-        get_pag_number = np.vectorize(lambda x: np.int16(x.get_attribute('data-test-pagination-page-btn')))
-        get_link = np.vectorize(lambda x: x.get_attribute('href'))
-
-        self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}")
-        time.sleep(5)
+        get_pag_number = lambda x: np.int16(x.get_attribute('data-test-pagination-page-btn'))
+        get_link = lambda x: x.get_attribute('href')
 
         # Coleta os links das vagas
-        
         pags_root = np.array(self.driver.find_elements(By.XPATH, "//li[@data-test-pagination-page-btn]"))
         n_pags_root = get_pag_number(pags_root)
         links_vagas = np.array([])
@@ -83,13 +79,13 @@ class LinkedInBot:
         #pdb.set_trace()
         max_pag = 25 * np.max(n_pags_root)
 
-
-        #Não consegue captar todos os links ainda, falta melhorar essa parte
+        #Isso pode ser paralelizado
         for i in range(0, max_pag, 25):
             try:
                 #Links
                 self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}&start={i}")
                 time.sleep(4)
+                #Scroll até o fim
                 footer = self.driver.find_element(By.XPATH, "//ul[contains(@class, 'artdeco-pagination__pages')]")
                 self.driver.execute_script("arguments[0].scrollIntoView(true);",footer)
                 time.sleep(2)
@@ -104,7 +100,7 @@ class LinkedInBot:
 
         return links_vagas
 
-    def aplicar_vaga(self, link_vaga: str, curriculo: str):
+    def aplicar_vaga(self, link_vaga: str, curriculo: str) -> None:
         """Aplica em uma vaga específica."""
         self.driver.get(link_vaga)
         time.sleep(5)
@@ -183,7 +179,7 @@ class LinkedInBot:
             return None
         
 
-    def fechar(self):
+    def fechar(self) -> None:
         """Fecha o navegador."""
         self.driver.quit()
 
