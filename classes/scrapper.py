@@ -67,16 +67,17 @@ class LinkedInBot:
 
     def buscar_vagas(self, palavra_chave: str, localizacao: str) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
-        #Funções vetoriais
-        get_pag_number = lambda x: np.int16(x.get_attribute('data-test-pagination-page-btn'))
-        get_link = lambda x: x.get_attribute('href')
+        #Funções vetoriais (remover isso eventualmente)
+        get_pag_number = np.vectorize(lambda x: np.int16(x.get_attribute('data-test-pagination-page-btn')))
+        get_link = np.vectorize(lambda x: x.get_attribute('href'))
 
+        self.driver.get(f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}")
+        time.sleep(5)
         # Coleta os links das vagas
         pags_root = np.array(self.driver.find_elements(By.XPATH, "//li[@data-test-pagination-page-btn]"))
         n_pags_root = get_pag_number(pags_root)
         links_vagas = np.array([])
         
-        #pdb.set_trace()
         max_pag = 25 * np.max(n_pags_root)
 
         #Isso pode ser paralelizado
@@ -206,15 +207,10 @@ def main():
 
         vagas = np.array([])
         # Exibe as vagas encontradas e busca mais detalhes
-        #print(f"Nº de links: {len(links_de_vagas)}")
+
         #Este for pode talvez ser paralelizado em varios browsers
         for link in links_de_vagas: 
             vagas = np.append(vagas, bot.obter_detalhes_vaga(link))
-            #if detalhes_vaga:
-            #    print(f"Estilo de Trabalho: {detalhes_vaga.estilo_trabalho}")
-            #    print(f"Nível de Senioridade: {detalhes_vaga.nivel_senioridade}")
-            #    print(f"Método de Apply: {detalhes_vaga.metodo_apply}")
-            #    print("-" * 40)
 
         vagas_dict_list = [asdict(vaga) for vaga in vagas]
         # Salvando como JSON

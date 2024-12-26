@@ -34,7 +34,10 @@ if __name__ == "__main__":
         
         # Remover duplicatas
         df_filtrado = df.drop_duplicates()
+        
+        #Isso pode ser paralelizado
         detalhes_vagas = df_filtrado.apply(lambda x: bot.obter_detalhes_vaga(x))
+        #detalhes_vagas = parallelize(bot.obter_detalhes_vaga, df_filtrado, 3)
         detalhes_vagas = detalhes_vagas[detalhes_vagas.apply(lambda x: x.metodo_apply == 'Interno')]
 
         # Salvando como JSON
