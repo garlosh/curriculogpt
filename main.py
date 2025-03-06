@@ -5,6 +5,7 @@ from classes.gpt import *
 from typing import Any
 import pandas as pd
 import pdb
+import json
 
 
 def carregar_vagas_existentes(path: str) -> dict:
@@ -75,7 +76,7 @@ if __name__ == "__main__":
                 lambda x: bot.obter_detalhes_vaga(x))
             detalhes_vagas = detalhes_vagas[detalhes_vagas.apply(
                 lambda x: x.metodo_apply == 'Interno')]
-
+            detalhes_vagas.reset_index(drop=True, inplace=True)
             # Combina vagas existentes com novas vagas
             vagas_atualizadas = atualizar_vagas(
                 vagas_existentes, detalhes_vagas)
@@ -90,8 +91,11 @@ if __name__ == "__main__":
             processador = ProcessadorCurriculo(
                 caminho_pdf_original, descricoes_vagas, destino_pdfs, api_key)
 
-            processador.processar()
+            path_curriculos = processador.processar()
             pdb.set_trace()
+            bot.aplicar_vagas(detalhes_vagas.apply(
+                lambda x: x.link), path_curriculos)
+
         else:
             print("Não foram encontradas novas vagas para processar.")
 

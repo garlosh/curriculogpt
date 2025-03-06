@@ -1,15 +1,13 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
-from dataclasses import dataclass, asdict
-from typing import List, Optional
+from dataclasses import dataclass
+from typing import Optional
+import random
 import numpy as np
 import multiprocessing
 import time
-from dotenv import load_dotenv, find_dotenv
-from os import environ
-import json
-
+import pdb
 # Usando dataclass para armazenar informações de login
 
 
@@ -114,32 +112,6 @@ class LinkedInBot:
 
         return links_vagas
 
-    def aplicar_vaga(self, link_vaga: str, curriculo: str) -> None:
-        """Aplica em uma vaga específica."""
-        self.driver.get(link_vaga)
-        time.sleep(5)
-
-        try:
-            # Encontra e clica no botão "Candidatar-se"
-            aplicar_btn = self.driver.find_element(
-                By.CLASS_NAME, "jobs-apply-button")
-            aplicar_btn.click()
-            time.sleep(3)
-
-            # Preenche os dados de candidatura, como o currículo
-            upload_element = self.driver.find_element(
-                By.NAME, "file-upload-input")
-            # upload_element.send_keys(curriculo)  # Caminho para o arquivo do currículo PDF
-
-            # Submete a candidatura
-            submit_btn = self.driver.find_element(
-                By.CLASS_NAME, "jobs-apply-form__submit-button")
-            submit_btn.click()
-
-            print(f"Aplicação concluída para: {link_vaga}")
-        except Exception as e:
-            print(f"Erro ao aplicar para a vaga: {link_vaga}, erro: {str(e)}")
-
     def obter_detalhes_vaga(self, link_vaga: str) -> Optional['Vaga']:
         """Navega até a vaga e coleta detalhes, incluindo estilo de trabalho, senioridade e método de apply."""
         self.driver.get(link_vaga)
@@ -201,6 +173,75 @@ class LinkedInBot:
             print(
                 f"Erro ao obter detalhes da vaga: {link_vaga}, erro: {str(e)}")
             return None
+
+    def aplicar_vagas(self, links_vagas: list, caminho_curriculo: str) -> dict:
+        """
+        Itera sobre uma lista de links de vagas, aplicando em cada uma com o currículo especificado.
+
+        Args:
+            links_vagas: Lista de links das vagas para aplicar
+            caminho_curriculo: Caminho para o arquivo do currículo PDF
+
+        Returns:
+            Dicionário com resultados das aplicações: {link: status}
+        """
+        resultados = {}
+
+        for link in links_vagas:
+            try:
+                self.driver.get(link)
+                time.sleep(5)
+
+                # Verifica se existe botão de "Candidatura Simplificada"
+                try:
+                    aplicar_btn = self.driver.find_elements(
+                        By.CLASS_NAME, "jobs-apply-button")
+                    # pdb.set_trace()
+                    if not aplicar_btn[1].is_displayed() or not aplicar_btn[1].is_enabled():
+                        resultados[link] = "Botão de aplicação não disponível"
+                        continue
+
+                    aplicar_btn[1].click()
+                    time.sleep(3)
+
+                    # Verifica se há um campo para upload de currículo
+                    try:
+                        # Tenta encontrar o elemento de upload
+                        upload_element = self.driver.find_element(
+                            By.CSS_SELECTOR, "input[type='file']")
+
+                        # Envia o caminho do arquivo
+                        upload_element.send_keys(caminho_curriculo)
+                        time.sleep(2)
+
+                        # Tenta encontrar e clicar no botão de envio/próximo
+                        next_or_submit_btn = self.driver.find_element(
+                            By.CSS_SELECTOR,
+                            "button[aria-label='Enviar candidatura'], button[aria-label='Avançar'], button[aria-label='Continuar'], button[aria-label='Enviar']"
+                        )
+                        next_or_submit_btn.click()
+                        time.sleep(2)
+
+                        # Registra resultado como sucesso
+                        resultados[link] = "Aplicação enviada com sucesso"
+                        print(f"Candidatura enviada para: {link}")
+
+                    except Exception as e:
+                        resultados[link] = f"Erro no upload do currículo: {str(e)}"
+                        print(f"Erro ao fazer upload do currículo: {str(e)}")
+
+                except Exception as e:
+                    resultados[link] = f"Erro ao clicar no botão de candidatura: {str(e)}"
+                    print(f"Erro ao clicar no botão de candidatura: {str(e)}")
+
+            except Exception as e:
+                resultados[link] = f"Erro ao acessar a vaga: {str(e)}"
+                print(f"Erro ao acessar a vaga {link}: {str(e)}")
+
+            # Pausa entre aplicações para evitar detecção de automação
+            time.sleep(random.randint(3, 7))
+
+        return resultados
 
     def fechar(self) -> None:
         """Fecha o navegador."""

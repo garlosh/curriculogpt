@@ -78,6 +78,7 @@ class GeradorCurriculo:
         - Gere o conteúdo de forma que o currículo preencha uma página mais ou menos, com bastante foco nas experiências.
         - Lembre-se que este currículo será convertido em PDF, portanto é de suma importância que o HTML gerado seja válido.
         - Não adicione nenhum comentário seu sobre o currículo, apenas o currículo em si.
+        - Faça o melhor currículo possível, pois ele será enviado para possíveis empregadores.
         """
 
         response = self.client.chat.completions.create(
@@ -116,6 +117,7 @@ class ProcessadorCurriculo:
 
             # Verifica se já existe PDF para essa descrição de vaga
             if os.path.exists(caminho_arquivo):
+                resultado[cont] = caminho_arquivo
                 print(
                     f"Currículo já existente para esta vaga: {nome_arquivo}.pdf. Reutilizando...")
                 continue
@@ -130,4 +132,5 @@ class ProcessadorCurriculo:
             curriculo_temp.salvar_curriculo_pdf(
                 nome_arquivo, self.destino_pdfs)
             resultado[cont] = caminho_arquivo
+            cont += 1
         return resultado
