@@ -94,13 +94,13 @@ class LinkedInBot:
                 # Links
                 self.driver.get(
                     f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}&start={i}")
-                time.sleep(4)
+                time.sleep(6)
                 # Scroll até o fim
                 footer = self.driver.find_element(
                     By.XPATH, "//ul[contains(@class, 'artdeco-pagination__pages')]")
                 self.driver.execute_script(
                     "arguments[0].scrollIntoView(true);", footer)
-                time.sleep(2)
+                time.sleep(8)
                 # Pega as vagas
                 vagas: np.array = np.array(self.driver.find_elements(
                     By.XPATH, "//a[contains(@class, 'job-card-list__title')]"))
