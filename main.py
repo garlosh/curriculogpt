@@ -1,5 +1,6 @@
 from dotenv import load_dotenv, find_dotenv
 from os import environ
+from os.path import abspath
 from classes.scrapper import *
 from classes.gpt import *
 from typing import Any
@@ -92,9 +93,8 @@ if __name__ == "__main__":
                 caminho_pdf_original, descricoes_vagas, destino_pdfs, api_key)
 
             path_curriculos = processador.processar()
-            pdb.set_trace()
             bot.aplicar_vagas(detalhes_vagas.apply(
-                lambda x: x.link), path_curriculos)
+                lambda x: x.link), [abspath(path) for path in path_curriculos])
 
         else:
             print("Não foram encontradas novas vagas para processar.")

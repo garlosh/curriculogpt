@@ -89,7 +89,7 @@ class LinkedInBot:
         max_pag = 25 * np.max(n_pags_root)
 
         # Isso pode ser paralelizado
-        for i in range(0, 25, 25):
+        for i in range(0, 200, 25):
             try:
                 # Links
                 self.driver.get(
@@ -174,20 +174,30 @@ class LinkedInBot:
                 f"Erro ao obter detalhes da vaga: {link_vaga}, erro: {str(e)}")
             return None
 
-    def aplicar_vagas(self, links_vagas: list, caminho_curriculo: str) -> dict:
+    def aplicar_vagas(self, links_vagas: list, caminhos_curriculos: list) -> dict:
         """
-        Itera sobre uma lista de links de vagas, aplicando em cada uma com o currículo especificado.
+        Itera sobre uma lista de links de vagas e seus currículos correspondentes.
 
         Args:
             links_vagas: Lista de links das vagas para aplicar
-            caminho_curriculo: Caminho para o arquivo do currículo PDF
+            caminhos_curriculos: Lista de caminhos para os arquivos de currículo PDF (na mesma ordem dos links)
 
         Returns:
             Dicionário com resultados das aplicações: {link: status}
         """
         resultados = {}
 
-        for link in links_vagas:
+        # Verifica se as listas têm o mesmo tamanho
+        if len(links_vagas) != len(caminhos_curriculos):
+            print(
+                f"AVISO: Número de links ({len(links_vagas)}) diferente do número de currículos ({len(caminhos_curriculos)})")
+            # Usa apenas até onde as listas têm correspondência
+            num_aplicacoes = min(len(links_vagas), len(caminhos_curriculos))
+            links_vagas = links_vagas[:num_aplicacoes]
+            caminhos_curriculos = caminhos_curriculos[:num_aplicacoes]
+
+        # Itera sobre os pares de links e currículos
+        for link, caminho_curriculo in zip(links_vagas, caminhos_curriculos):
             try:
                 self.driver.get(link)
                 time.sleep(5)
@@ -196,13 +206,14 @@ class LinkedInBot:
                 try:
                     aplicar_btn = self.driver.find_elements(
                         By.CLASS_NAME, "jobs-apply-button")
-                    # pdb.set_trace()
+
                     if not aplicar_btn[1].is_displayed() or not aplicar_btn[1].is_enabled():
                         resultados[link] = "Botão de aplicação não disponível"
                         continue
 
                     aplicar_btn[1].click()
                     time.sleep(3)
+                    # pdb.set_trace()  # Removido o debugger break point
 
                     # Verifica se há um campo para upload de currículo
                     try:
@@ -216,8 +227,8 @@ class LinkedInBot:
 
                         # Tenta encontrar e clicar no botão de envio/próximo
                         next_or_submit_btn = self.driver.find_element(
-                            By.CSS_SELECTOR,
-                            "button[aria-label='Enviar candidatura'], button[aria-label='Avançar'], button[aria-label='Continuar'], button[aria-label='Enviar']"
+                            By.XPATH,
+                            "//button[.//span[contains(normalize-space(), 'Enviar Candidatura')]]"
                         )
                         next_or_submit_btn.click()
                         time.sleep(2)
