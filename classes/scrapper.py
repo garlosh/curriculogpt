@@ -89,7 +89,7 @@ class LinkedInBot:
         max_pag = 25 * np.max(n_pags_root)
 
         # Isso pode ser paralelizado
-        for i in range(0, 200, 25):
+        for i in range(0, 75, 25):
             try:
                 # Links
                 self.driver.get(
@@ -230,6 +230,8 @@ class LinkedInBot:
                             By.XPATH,
                             "//button[.//span[contains(normalize-space(), 'Enviar Candidatura')]]"
                         )
+                        self.driver.execute_script(
+                            "arguments[0].scrollIntoView(true);", next_or_submit_btn)
                         next_or_submit_btn.click()
                         time.sleep(2)
 
