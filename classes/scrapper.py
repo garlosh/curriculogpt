@@ -29,24 +29,15 @@ class Vaga:
 
 
 def parallelize(funct, iterable, processes=None) -> np.array:
-    # Determina o número de núcleos disponíveis
-
     num_nucleos = multiprocessing.cpu_count() - 1 if processes is None else processes
-
     print(f"Número de núcleos disponíveis: {num_nucleos}")
-
     resultados = np.array([])
-    # Cria um pool de processos que utiliza todos os núcleos
     with multiprocessing.Pool(processes=num_nucleos) as pool:
 
-        # Executa a função 'tarefa' em paralelo para cada número da lista
         for i in pool.imap_unordered(funct, iterable):
             resultados = np.append(resultados, i)
 
-    # Exibe os resultados
     return resultados
-
-# Classe para gerenciar o LinkedIn
 
 
 class LinkedInBot:
@@ -89,7 +80,7 @@ class LinkedInBot:
         max_pag = 25 * np.max(n_pags_root)
 
         # Isso pode ser paralelizado
-        for i in range(0, 75, 25):
+        for i in range(0, 25, 25):
             try:
                 # Links
                 self.driver.get(
@@ -115,7 +106,7 @@ class LinkedInBot:
     def obter_detalhes_vaga(self, link_vaga: str) -> Optional['Vaga']:
         """Navega até a vaga e coleta detalhes, incluindo estilo de trabalho, senioridade e método de apply."""
         self.driver.get(link_vaga)
-        time.sleep(5)
+        time.sleep(random.randint(5, 10))
 
         try:
             # Estilo de trabalho (Remoto, Híbrido, Presencial)

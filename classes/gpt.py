@@ -90,7 +90,7 @@ class GeradorCurriculo:
 
 
 class ProcessadorCurriculo:
-    def __init__(self, caminho_pdf_original: str, descricoes_vagas: list, destino_pdfs: str, api_key: str):
+    def __init__(self, caminho_pdf_original: str, descricoes_vagas: Series, destino_pdfs: str, api_key: str):
         self.curriculo = Curriculo(caminho_pdf=caminho_pdf_original)
         self.descricoes_vagas = descricoes_vagas
         self.destino_pdfs = destino_pdfs
@@ -108,16 +108,16 @@ class ProcessadorCurriculo:
 
         # Gera currículos personalizados para cada descrição de vaga
         gerador = GeradorCurriculo(api_key=self.api_key)
-        resultado = Series([''] * len(self.descricoes_vagas))
-        cont = 0
-        for descricao_vaga in self.descricoes_vagas:
+        paths = []
+
+        for idx, descricao_vaga in self.descricoes_vagas.items():
             nome_arquivo = self.gerar_identificador_unico(descricao_vaga)
             caminho_arquivo = os.path.join(
                 self.destino_pdfs, f"{nome_arquivo}.pdf")
+            paths.append(caminho_arquivo)
 
             # Verifica se já existe PDF para essa descrição de vaga
             if os.path.exists(caminho_arquivo):
-                resultado[cont] = caminho_arquivo
                 print(
                     f"Currículo já existente para esta vaga: {nome_arquivo}.pdf. Reutilizando...")
                 continue
@@ -131,6 +131,5 @@ class ProcessadorCurriculo:
                 caminho_pdf="", conteudo=curriculo_personalizado)
             curriculo_temp.salvar_curriculo_pdf(
                 nome_arquivo, self.destino_pdfs)
-            resultado[cont] = caminho_arquivo
-            cont += 1
-        return resultado
+
+        return Series(paths)
