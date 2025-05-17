@@ -23,7 +23,7 @@ O objetivo principal do CurriculoGPT é simplificar e elevar o processo de cria�
   - Garantir a inclusão das palavras-chave identificadas
 
 ### TO-DO:
-- [ ] Criar um cache de vagas já aplicadas
+- [X] Criar um cache de vagas já aplicadas
 - [ ] Preencher as questões de qualquer vaga de candidatura simplificada
 - [x] Enviar o currículo para vagas que apenas pedem currículo
 - [ ] Permitir o usuário apenas gerar os currículos e identificar a qual vagas estes pertencem
