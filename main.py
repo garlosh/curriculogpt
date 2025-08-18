@@ -31,7 +31,7 @@ def atualizar_vagas(vagas_existentes: pd.DataFrame, novas_vagas: pd.DataFrame) -
     for df in [vagas_existentes, novas_vagas]:
         if 'link' not in df.columns and 'index' in df.columns:
             df.rename(columns={'index': 'link'}, inplace=True)
-        df.reset_index(drop=True, inplace=True)
+        df.rect_index(drop=True, inplace=True)
 
     vagas_combinadas = pd.concat(
         [vagas_existentes, novas_vagas], ignore_index=True)
@@ -46,13 +46,14 @@ def salvar_mapeamento_curriculos_vagas(path_curriculos: pd.Series, detalhes_vaga
     if len(path_curriculos) != len(detalhes_vagas):
         print("Erro: O número de currículos não corresponde ao número de vagas.")
         return
-
+    import ipbd
+    ipbd.set_trace()
     # Cria um DataFrame de mapeamento
     mapeamento = pd.DataFrame({
         'caminho_curriculo': path_curriculos,
-        'link_vaga': detalhes_vagas.apply(lambda x: x.link),
-        'estilo_trabalho': detalhes_vagas.apply(lambda x: x.estilo_trabalho),
-        'nivel_senioridade': detalhes_vagas.apply(lambda x: x.nivel_senioridade),
+        'link_vaga': detalhes_vagas['link'],
+        'estilo_trabalho': detalhes_vagas['estilo_trabalho'],
+        'nivel_senioridade': detalhes_vagas['nivel_senioridade'],
         'data_aplicacao': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
     })
 
@@ -143,7 +144,8 @@ if __name__ == "__main__":
             # Combina vagas existentes com novas vagas
             vagas_atualizadas = atualizar_vagas(
                 vagas_existentes, detalhes_novas_vagas)
-
+            import ipdb
+            ipdb.set_trace()
             # Salvando como JSON formatado
             with open("vagas.json", "w", encoding="utf-8") as json_file:
                 json.dump(vagas_atualizadas.set_index('link').to_dict(orient='index'),

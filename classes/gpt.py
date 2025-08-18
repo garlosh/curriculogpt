@@ -94,7 +94,8 @@ class ProcessadorCurriculo:
         self.curriculo = Curriculo(caminho_pdf=caminho_pdf_original)
         self.descricoes_vagas = descricoes_vagas
         self.destino_pdfs = destino_pdfs
-        self.api_key = api_key
+        # self.api_key = api_key
+        self.gerador = GeradorCurriculo(api_key=api_key)
 
     def gerar_identificador_unico(self, descricao_vaga: str) -> str:
         """Gera um identificador único baseado na descrição da vaga para nomear o PDF."""
@@ -107,7 +108,7 @@ class ProcessadorCurriculo:
         self.curriculo.extrair_conteudo()
 
         # Gera currículos personalizados para cada descrição de vaga
-        gerador = GeradorCurriculo(api_key=self.api_key)
+
         paths = []
 
         for idx, descricao_vaga in self.descricoes_vagas.items():
@@ -123,7 +124,7 @@ class ProcessadorCurriculo:
                 continue
 
             # Gera o texto personalizado
-            curriculo_personalizado = gerador.gerar_curriculo_personalizado(
+            curriculo_personalizado = self.gerador.gerar_curriculo_personalizado(
                 self.curriculo, descricao_vaga).replace("`", "").replace("`", "").replace("html", "")
 
             # Cria um novo objeto Curriculo apenas com o conteúdo personalizado

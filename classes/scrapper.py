@@ -1,4 +1,5 @@
 from selenium import webdriver
+from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from dataclasses import dataclass
@@ -42,7 +43,9 @@ def parallelize(funct, iterable, processes=None) -> np.array:
 
 class LinkedInBot:
     def __init__(self):
-        self.driver: webdriver.Edge = webdriver.Edge()
+        service = Service(
+            executable_path="C:\\Users\\cagol\\OneDrive\\Documentos\\Projetos\\curriculogpt\\driver\\msedgedriver.exe")
+        self.driver: webdriver.Edge = webdriver.Edge(service=service)
 
     def login(self, credentials: LinkedInCredentials) -> None:
         """Realiza login no LinkedIn."""
@@ -63,45 +66,78 @@ class LinkedInBot:
 
     def buscar_vagas(self, palavra_chave: str, localizacao: str) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
-        # Funções vetoriais (remover isso eventualmente)
-        get_pag_number = np.vectorize(lambda x: np.int16(
-            x.get_attribute('data-test-pagination-page-btn')))
-        get_link = np.vectorize(lambda x: x.get_attribute('href'))
-
         self.driver.get(
             f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}")
         time.sleep(5)
+
+        links_vagas = []
+        import pdb
+
         # Coleta os links das vagas
-        pags_root = np.array(self.driver.find_elements(
-            By.XPATH, "//li[@data-test-pagination-page-btn]"))
-        n_pags_root = get_pag_number(pags_root)
-        links_vagas = np.array([])
+        try:
+            pags_root = self.driver.find_elements(
+                By.XPATH, "//li[@data-test-pagination-page-btn]")
 
-        max_pag = 25 * np.max(n_pags_root)
+            if pags_root:
+                # Funções para extrair dados dos elementos
+                def get_pag_number(element):
+                    try:
+                        return int(element.get_attribute('data-test-pagination-page-btn'))
+                    except (ValueError, TypeError):
+                        return 1
 
-        # Isso pode ser paralelizado
-        for i in range(0, 25, 25):
+                def get_link(element):
+                    return element.get_attribute('href')
+
+                # Obtém o número máximo de páginas
+                page_numbers = [get_pag_number(elem) for elem in pags_root]
+                max_page = max(page_numbers) if page_numbers else 1
+                max_start = 25 * max_page
+            else:
+                max_start = 25  # Se não encontrar paginação, busca apenas a primeira página
+
+        except Exception as e:
+            print(f"Erro ao obter informações de paginação: {e}")
+            max_start = 25
+        # Itera pelas páginas
+        for i in range(0, min(max_start, 250), 25):
             try:
-                # Links
+                # Navega para a página específica
                 self.driver.get(
-                    f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}&start={i}")
+                    f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&f_AL=true&location={localizacao}&start={i}")
                 time.sleep(6)
-                # Scroll até o fim
-                footer = self.driver.find_element(
-                    By.XPATH, "//ul[contains(@class, 'artdeco-pagination__pages')]")
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView(true);", footer)
-                time.sleep(8)
-                # Pega as vagas
-                vagas: np.array = np.array(self.driver.find_elements(
-                    By.XPATH, "//a[contains(@class, 'job-card-list__title')]"))
-                links_pag = get_link(vagas)
-                links_vagas = np.concatenate((links_vagas, links_pag))
 
-            except:
+                # Scroll até o fim da página
+                try:
+                    footer = self.driver.find_element(
+                        By.XPATH, "//ul[contains(@class, 'artdeco-pagination__pages')]")
+                    self.driver.execute_script(
+                        "arguments[0].scrollIntoView(true);", footer)
+                except:
+                    # Se não encontrar o footer, faz scroll até o final da página
+                    self.driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight);")
+
+                time.sleep(8)
+
+                # Coleta os links das vagas na página atual
+                vagas_elements = self.driver.find_elements(
+                    By.XPATH, "//a[contains(@class, 'job-card-list__title')]")
+
+                for vaga_elem in vagas_elements:
+                    link = vaga_elem.get_attribute('href')
+                    if link and link not in links_vagas:
+                        links_vagas.append(link)
+
+                print(
+                    f"Página {i // 25 + 1}: Encontradas {len(vagas_elements)} vagas")
+
+            except Exception as e:
+                print(f"Erro ao processar página {i // 25 + 1}: {e}")
                 continue
 
-        return links_vagas
+        print(f"Total de vagas únicas encontradas: {len(links_vagas)}")
+        return np.array(links_vagas)
 
     def obter_detalhes_vaga(self, link_vaga: str) -> Optional['Vaga']:
         """Navega até a vaga e coleta detalhes, incluindo estilo de trabalho, senioridade e método de apply."""
