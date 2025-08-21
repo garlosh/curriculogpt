@@ -2,15 +2,13 @@ from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.keys import Keys
 import pyautogui
-import win32gui
 from selenium.webdriver.common.by import By
 from dataclasses import dataclass
 from typing import Optional
+from classes.gpt import InterfaceIA, Curriculo
 import random
 import numpy as np
-import multiprocessing
 import time
-import re
 import ipdb
 # Usando dataclass para armazenar informações de login
 
@@ -30,40 +28,15 @@ class Vaga:
     descricao: str
 
 
-class WindowMgr:
-    """Encapsulates some calls to the winapi for window management"""
-
-    def __init__(self):
-        """Constructor"""
-        self._handle = None
-
-    def find_window(self, class_name, window_name=None):
-        """find a window by its class_name"""
-        self._handle = win32gui.FindWindow(class_name, window_name)
-
-    def _window_enum_callback(self, hwnd, wildcard):
-        """Pass to win32gui.EnumWindows() to check all the opened windows"""
-        if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
-            self._handle = hwnd
-
-    def find_window_wildcard(self, wildcard):
-        """find a window whose title matches the wildcard regex"""
-        self._handle = None
-        win32gui.EnumWindows(self._window_enum_callback, wildcard)
-
-    def set_foreground(self):
-        """put the window in the foreground"""
-        win32gui.SetForegroundWindow(self._handle)
-
-
 class LinkedInBot:
-    def __init__(self):
+    def __init__(self, api_key: str):
         opt = webdriver.EdgeOptions()
         opt.add_argument("--log-level=3")
         service = Service(
             executable_path="C:\\Users\\cagol\\OneDrive\\Documentos\\Projetos\\curriculogpt\\driver\\msedgedriver.exe")
         self.driver: webdriver.Edge = webdriver.Edge(
             service=service, options=opt)
+        self.interface_ia = InterfaceIA(api_key)
 
     def login(self, credentials: LinkedInCredentials) -> None:
         """Realiza login no LinkedIn."""
@@ -82,7 +55,7 @@ class LinkedInBot:
         password_field.send_keys(Keys.RETURN)
         time.sleep(5)
 
-    def buscar_vagas(self, palavra_chave: str, localizacao: str, max_vagas=75) -> np.array:
+    def buscar_vagas(self, palavra_chave: str, localizacao: str, max_vagas=25) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
         links_vagas = []
         self.driver.get(
@@ -137,10 +110,11 @@ class LinkedInBot:
 
     def obter_detalhes_vaga(self, link_vaga: str) -> Optional['Vaga']:
         """Navega até a vaga e coleta detalhes, incluindo estilo de trabalho, senioridade e método de apply."""
-        self.driver.get(link_vaga)
-        time.sleep(random.randint(5, 10))
 
         try:
+            self.driver.get(link_vaga)
+            time.sleep(random.randint(5, 10))
+            self.driver.execute_script("window.stop();")
             # Estilo de trabalho (Remoto, Híbrido, Presencial)
             estilo_trabalho = "Indefinido"
             try:
@@ -197,7 +171,36 @@ class LinkedInBot:
                 f"Erro ao obter detalhes da vaga: {link_vaga}, erro: {str(e)}")
             return None
 
-    def aplicar_vagas(self, links_vagas: list, caminhos_curriculos: list) -> dict:
+    def _send_or_advance_apply(self):
+        result = None
+        try:
+            # Tenta encontrar e clicar no botão de envio/próximo
+            next_or_submit_btn = self.driver.find_element(
+                By.XPATH,
+                "//button[.//span[contains(normalize-space(), 'Enviar Candidatura')]]"
+            )
+            result = 'Enviar Candidatura'
+        except:
+            next_or_submit_btn = self.driver.find_element(
+                By.XPATH,
+                "//button[.//span[contains(normalize-space(), 'Avançar') or contains(normalize-space(), 'Revisar')]]"
+            )
+            result = 'Avançar'
+        next_or_submit_btn.click()
+        return result
+
+    def _define_page_type(self):
+        result = None
+        try:
+            upload_element = self.driver.find_element(
+                By.XPATH, "//h3[@class='t-16 t-bold']")
+            result = upload_element.text
+        except:
+            return None
+
+        return result
+
+    def aplicar_vagas(self, links_vagas: list, caminhos_curriculos: list, curriculo: Curriculo) -> dict:
         """
         Itera sobre uma lista de links de vagas e seus currículos correspondentes.
 
@@ -226,50 +229,43 @@ class LinkedInBot:
                 time.sleep(5)
 
                 # Verifica se existe botão de "Candidatura Simplificada"
-                try:
-                    aplicar_btn = self.driver.find_elements(
-                        By.CLASS_NAME, "jobs-apply-button")
 
-                    if not aplicar_btn[1].is_displayed() or not aplicar_btn[1].is_enabled():
-                        resultados[link] = "Botão de aplicação não disponível"
-                        continue
+                aplicar_btn = self.driver.find_elements(
+                    By.CLASS_NAME, "jobs-apply-button")
 
-                    aplicar_btn[1].click()
-                    time.sleep(3)
-                    # pdb.set_trace()  # Removido o debugger break point
+                if not aplicar_btn[1].is_displayed() or not aplicar_btn[1].is_enabled():
+                    resultados[link] = "Botão de aplicação não disponível"
+                    continue
 
-                    ipdb.set_trace()
-                    # Verifica se há um campo para upload de currículo
-                    try:
-                        # Tenta encontrar o elemento de upload
+                aplicar_btn[1].click()
+                time.sleep(1.5)
+                # pdb.set_trace()  # Removido o debugger break point
+
+                # Verifica se há um campo para upload de currículo
+
+                out = False
+                while not out:
+                    result = self._send_or_advance_apply()
+                    if result == 'Enviar Candidatura':
+                        out = True
+                    time.sleep(1)
+                    page_type = self._define_page_type()
+
+                    if page_type and page_type == 'Currículo':
                         upload_element = self.driver.find_element(
                             By.CSS_SELECTOR, "input[type='file']")
-
-                        # Envia o caminho do arquivo
                         upload_element.send_keys(caminho_curriculo)
-                        time.sleep(2)
 
-                        # Tenta encontrar e clicar no botão de envio/próximo
-                        next_or_submit_btn = self.driver.find_element(
-                            By.XPATH,
-                            "//button[.//span[contains(normalize-space(), 'Enviar Candidatura')]]"
-                        )
-                        self.driver.execute_script(
-                            "arguments[0].scrollIntoView(true);", next_or_submit_btn)
-                        next_or_submit_btn.click()
-                        time.sleep(2)
+                    elif page_type and page_type == 'Perguntas adicionais':
+                        questions = self.driver.find_elements(
+                            By.CLASS_NAME, "fb-dash-form-element")
 
-                        # Registra resultado como sucesso
-                        resultados[link] = "Aplicação enviada com sucesso"
-                        print(f"Candidatura enviada para: {link}")
-
-                    except Exception as e:
-                        resultados[link] = f"Erro no upload do currículo: {str(e)}"
-                        print(f"Erro ao fazer upload do currículo: {str(e)}")
-
-                except Exception as e:
-                    resultados[link] = f"Erro ao clicar no botão de candidatura: {str(e)}"
-                    print(f"Erro ao clicar no botão de candidatura: {str(e)}")
+                        for i in range(len(questions)):
+                            input_element = questions[i].find_element(
+                                By.CSS_SELECTOR, "input[type='text'], input[type='number'], textarea")
+                            resp = self.interface_ia.responder_pergunta(curriculo=curriculo,
+                                                                        pergunta=questions[i].text)
+                            input_element.send_keys(resp)
 
             except Exception as e:
                 resultados[link] = f"Erro ao acessar a vaga: {str(e)}"

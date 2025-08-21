@@ -7,7 +7,6 @@ from dataclasses import dataclass
 # from dotenv import load_dotenv, find_dotenv
 # from os import environ
 from pandas import Series
-import pdb
 
 
 @dataclass
@@ -88,16 +87,14 @@ class InterfaceIA:
         )
         return response.choices[0].message.content.strip()
 
-    def responder_pergunta(self, curriculo: Curriculo, descricao_vaga: str, prompt: str) -> str:
+    def responder_pergunta(self, curriculo: Curriculo, pergunta: str) -> str:
         prompt = f"""
         Este é o meu currículo:
 
         {curriculo.conteudo}
 
-        E a descrição da vaga de emprego:
 
-        {descricao_vaga}
-        Assim, sua tarefa é responder a seguinte pergunta: {prompt}
+        Assim, sua tarefa é responder a seguinte pergunta: {pergunta}
         com base nessas orientações:
         - Essa pergunta é oriunda de um processo seletivo de entrevista de emprego, portanto mantenha um tom profissional e objetivo.
         - Seja claro, breve e direto ao ponto.
@@ -118,9 +115,9 @@ class InterfaceIA:
 class ProcessadorCurriculo:
     def __init__(self, caminho_pdf_original: str, descricoes_vagas: Series, destino_pdfs: str, api_key: str):
         self.curriculo = Curriculo(caminho_pdf=caminho_pdf_original)
+        self.curriculo.extrair_conteudo()
         self.descricoes_vagas = descricoes_vagas
         self.destino_pdfs = destino_pdfs
-        # self.api_key = api_key
         self.gerador = InterfaceIA(api_key=api_key)
 
     def gerar_identificador_unico(self, descricao_vaga: str) -> str:
@@ -131,7 +128,6 @@ class ProcessadorCurriculo:
     def processar(self) -> Series:
         """Processa a geração dos currículos personalizados e os salva como PDFs."""
         # Extrai o conteúdo do currículo original
-        self.curriculo.extrair_conteudo()
 
         # Gera currículos personalizados para cada descrição de vaga
 

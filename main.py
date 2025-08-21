@@ -80,12 +80,12 @@ def salvar_mapeamento_curriculos_vagas(path_curriculos: pd.Series, detalhes_vaga
 if __name__ == "__main__":
     # Configurar credenciais
     load_dotenv(find_dotenv(), override=True)
+    api_key = environ.get("OPEN_AI_KEY")
     credentials = LinkedInCredentials(
         email=environ.get("LINKEDIN_USER"),
         password=environ.get("LINKEDIN_PASS")
     )
     # Definir a chave da API da OpenAI
-    api_key = environ.get("OPEN_AI_KEY")
 
     # Paths
     destino_pdfs = "./curriculosgpt"
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         destino_pdfs, "mapeamento_curriculos_vagas.csv")
 
     # Inicializa o bot do LinkedIn
-    bot = LinkedInBot()
+    bot = LinkedInBot(api_key)
 
     try:
         bot.login(credentials)
@@ -126,6 +126,8 @@ if __name__ == "__main__":
                 columns=['link', 'estilo_trabalho', 'nivel_senioridade', 'metodo_apply', 'descricao'])
 
             for idx, row in links_nao_processados.iterrows():
+                if idx > 5:
+                    break
                 vaga = bot.obter_detalhes_vaga(row['link'])
                 if vaga and vaga.metodo_apply == 'Interno':
                     nova_linha = pd.DataFrame({
@@ -162,7 +164,8 @@ if __name__ == "__main__":
 
                 # Aplica os currículos às vagas
                 bot.aplicar_vagas(detalhes_novas_vagas['link'].tolist(),
-                                  [abspath(path) for path in path_curriculos])
+                                  [abspath(path) for path in path_curriculos],
+                                  processador.curriculo)
             else:
                 print(
                     "Não foram encontradas novas vagas com método de aplicação interno.")
