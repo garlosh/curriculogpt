@@ -1,6 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.common.keys import Keys
+import pyautogui
+import win32gui
 from selenium.webdriver.common.by import By
 from dataclasses import dataclass
 from typing import Optional
@@ -8,7 +10,8 @@ import random
 import numpy as np
 import multiprocessing
 import time
-import pdb
+import re
+import ipdb
 # Usando dataclass para armazenar informações de login
 
 
@@ -26,26 +29,41 @@ class Vaga:
     metodo_apply: str
     descricao: str
 
-# Falta adequar isso
 
+class WindowMgr:
+    """Encapsulates some calls to the winapi for window management"""
 
-def parallelize(funct, iterable, processes=None) -> np.array:
-    num_nucleos = multiprocessing.cpu_count() - 1 if processes is None else processes
-    print(f"Número de núcleos disponíveis: {num_nucleos}")
-    resultados = np.array([])
-    with multiprocessing.Pool(processes=num_nucleos) as pool:
+    def __init__(self):
+        """Constructor"""
+        self._handle = None
 
-        for i in pool.imap_unordered(funct, iterable):
-            resultados = np.append(resultados, i)
+    def find_window(self, class_name, window_name=None):
+        """find a window by its class_name"""
+        self._handle = win32gui.FindWindow(class_name, window_name)
 
-    return resultados
+    def _window_enum_callback(self, hwnd, wildcard):
+        """Pass to win32gui.EnumWindows() to check all the opened windows"""
+        if re.match(wildcard, str(win32gui.GetWindowText(hwnd))) is not None:
+            self._handle = hwnd
+
+    def find_window_wildcard(self, wildcard):
+        """find a window whose title matches the wildcard regex"""
+        self._handle = None
+        win32gui.EnumWindows(self._window_enum_callback, wildcard)
+
+    def set_foreground(self):
+        """put the window in the foreground"""
+        win32gui.SetForegroundWindow(self._handle)
 
 
 class LinkedInBot:
     def __init__(self):
+        opt = webdriver.EdgeOptions()
+        opt.add_argument("--log-level=3")
         service = Service(
             executable_path="C:\\Users\\cagol\\OneDrive\\Documentos\\Projetos\\curriculogpt\\driver\\msedgedriver.exe")
-        self.driver: webdriver.Edge = webdriver.Edge(service=service)
+        self.driver: webdriver.Edge = webdriver.Edge(
+            service=service, options=opt)
 
     def login(self, credentials: LinkedInCredentials) -> None:
         """Realiza login no LinkedIn."""
@@ -64,48 +82,26 @@ class LinkedInBot:
         password_field.send_keys(Keys.RETURN)
         time.sleep(5)
 
-    def buscar_vagas(self, palavra_chave: str, localizacao: str) -> np.array:
+    def buscar_vagas(self, palavra_chave: str, localizacao: str, max_vagas=75) -> np.array:
         """Busca vagas no LinkedIn e retorna os links das vagas."""
+        links_vagas = []
         self.driver.get(
             f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&location={localizacao}")
         time.sleep(5)
 
-        links_vagas = []
-        import pdb
+        for i in range(0, 10):
+            pyautogui.hotkey('ctrl', '-')
+            time.sleep(0.2)
 
-        # Coleta os links das vagas
-        try:
-            pags_root = self.driver.find_elements(
-                By.XPATH, "//li[@data-test-pagination-page-btn]")
+        time.sleep(2)
 
-            if pags_root:
-                # Funções para extrair dados dos elementos
-                def get_pag_number(element):
-                    try:
-                        return int(element.get_attribute('data-test-pagination-page-btn'))
-                    except (ValueError, TypeError):
-                        return 1
-
-                def get_link(element):
-                    return element.get_attribute('href')
-
-                # Obtém o número máximo de páginas
-                page_numbers = [get_pag_number(elem) for elem in pags_root]
-                max_page = max(page_numbers) if page_numbers else 1
-                max_start = 25 * max_page
-            else:
-                max_start = 25  # Se não encontrar paginação, busca apenas a primeira página
-
-        except Exception as e:
-            print(f"Erro ao obter informações de paginação: {e}")
-            max_start = 25
         # Itera pelas páginas
-        for i in range(0, min(max_start, 250), 25):
+        for i in range(0, max_vagas, 25):
             try:
                 # Navega para a página específica
                 self.driver.get(
                     f"https://www.linkedin.com/jobs/search/?keywords={palavra_chave}&f_AL=true&location={localizacao}&start={i}")
-                time.sleep(6)
+                time.sleep(3)
 
                 # Scroll até o fim da página
                 try:
@@ -151,7 +147,7 @@ class LinkedInBot:
                 estilo_trabalho_elem = self.driver.find_element(
                     By.XPATH, "//span[contains(text(), 'Remoto') or contains(text(), 'Híbrido') or contains(text(), 'Presencial')]")
                 estilo_trabalho = estilo_trabalho_elem.text
-            except:
+            except Exception:
                 pass
 
             # Nível de senioridade
@@ -160,7 +156,7 @@ class LinkedInBot:
                 nivel_senioridade_elem = self.driver.find_element(
                     By.XPATH, "//span[@dir and contains(@class, 'job-details-jobs-unified-top-card__job-insight-view-model-secondary')]")
                 nivel_senioridade = nivel_senioridade_elem.text
-            except:
+            except Exception:
                 pass
 
             # Método de candidatura (Easy Apply, Apply Externo, ou Apply)
@@ -173,7 +169,7 @@ class LinkedInBot:
                 else:
                     metodo_apply = "Externo"
 
-            except:
+            except Exception:
                 pass
 
             # Descrição da vaga
@@ -185,7 +181,7 @@ class LinkedInBot:
                 desc_elem = self.driver.find_element(
                     By.XPATH, "//*[@id='job-details']/div")
                 desc = desc_elem.text
-            except:
+            except Exception:
                 pass
             # Retorna as informações da vaga
             return Vaga(
@@ -242,6 +238,7 @@ class LinkedInBot:
                     time.sleep(3)
                     # pdb.set_trace()  # Removido o debugger break point
 
+                    ipdb.set_trace()
                     # Verifica se há um campo para upload de currículo
                     try:
                         # Tenta encontrar o elemento de upload

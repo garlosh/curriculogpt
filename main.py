@@ -31,7 +31,7 @@ def atualizar_vagas(vagas_existentes: pd.DataFrame, novas_vagas: pd.DataFrame) -
     for df in [vagas_existentes, novas_vagas]:
         if 'link' not in df.columns and 'index' in df.columns:
             df.rename(columns={'index': 'link'}, inplace=True)
-        df.rect_index(drop=True, inplace=True)
+        df.reset_index(drop=True, inplace=True)
 
     vagas_combinadas = pd.concat(
         [vagas_existentes, novas_vagas], ignore_index=True)
@@ -46,8 +46,6 @@ def salvar_mapeamento_curriculos_vagas(path_curriculos: pd.Series, detalhes_vaga
     if len(path_curriculos) != len(detalhes_vagas):
         print("Erro: O número de currículos não corresponde ao número de vagas.")
         return
-    import ipbd
-    ipbd.set_trace()
     # Cria um DataFrame de mapeamento
     mapeamento = pd.DataFrame({
         'caminho_curriculo': path_curriculos,
@@ -99,7 +97,6 @@ if __name__ == "__main__":
     bot = LinkedInBot()
 
     try:
-        # Login no LinkedIn
         bot.login(credentials)
 
         # Busca vagas de desenvolvedor Python no Brasil
@@ -140,15 +137,15 @@ if __name__ == "__main__":
                     })
                     detalhes_novas_vagas = pd.concat(
                         [detalhes_novas_vagas, nova_linha], ignore_index=True)
-
+            # import ipdb
+            # ipdb.set_trace()
             # Combina vagas existentes com novas vagas
             vagas_atualizadas = atualizar_vagas(
                 vagas_existentes, detalhes_novas_vagas)
-            import ipdb
-            ipdb.set_trace()
+
             # Salvando como JSON formatado
             with open("vagas.json", "w", encoding="utf-8") as json_file:
-                json.dump(vagas_atualizadas.set_index('link').to_dict(orient='index'),
+                json.dump(vagas_atualizadas.to_dict(orient='index'),
                           json_file, indent=4, ensure_ascii=False)
 
             if not detalhes_novas_vagas.empty:

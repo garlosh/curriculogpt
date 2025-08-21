@@ -54,7 +54,7 @@ class Curriculo:
             print(f"Falha ao salvar o curriculo: {nome_arquivo}")
 
 
-class GeradorCurriculo:
+class InterfaceIA:
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.client = OpenAI(api_key=self.api_key)
@@ -88,6 +88,32 @@ class GeradorCurriculo:
         )
         return response.choices[0].message.content.strip()
 
+    def responder_pergunta(self, curriculo: Curriculo, descricao_vaga: str, prompt: str) -> str:
+        prompt = f"""
+        Este é o meu currículo:
+
+        {curriculo.conteudo}
+
+        E a descrição da vaga de emprego:
+
+        {descricao_vaga}
+        Assim, sua tarefa é responder a seguinte pergunta: {prompt}
+        com base nessas orientações:
+        - Essa pergunta é oriunda de um processo seletivo de entrevista de emprego, portanto mantenha um tom profissional e objetivo.
+        - Seja claro, breve e direto ao ponto.
+        - Foque nas experiências e habilidades relevantes para a vaga.
+        - Evite floreios e informações irrelevantes.
+        - Não responda nada em tópico, sempre em texto corrido.
+        - Se a pergunta pedir apenas um número, forneça apenas o número sem explicações adicionais.
+        """
+
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,
+        )
+        return response.choices[0].message.content.strip()
+
 
 class ProcessadorCurriculo:
     def __init__(self, caminho_pdf_original: str, descricoes_vagas: Series, destino_pdfs: str, api_key: str):
@@ -95,7 +121,7 @@ class ProcessadorCurriculo:
         self.descricoes_vagas = descricoes_vagas
         self.destino_pdfs = destino_pdfs
         # self.api_key = api_key
-        self.gerador = GeradorCurriculo(api_key=api_key)
+        self.gerador = InterfaceIA(api_key=api_key)
 
     def gerar_identificador_unico(self, descricao_vaga: str) -> str:
         """Gera um identificador único baseado na descrição da vaga para nomear o PDF."""
